@@ -1,0 +1,35 @@
+persist_samples: 3
+
+battery_voltage:
+  warning_below: 3.5
+  critical_below: 3.3
+  hysteresis: 0.05
+
+tilt:
+  warning_above: 45.0
+  critical_above: 70.0
+  hysteresis: 3.0
+
+total_acceleration:
+  warning_above: 3.0
+  critical_above: 6.0
+  hysteresis: 0.2
+
+descent_rate:
+  warning_above: 3.0
+  critical_above: 6.0
+  hysteresis: 0.4
+
+enclosure_temperature:
+  warning_above: 50.0
+  critical_above: 65.0
+  hysteresis: 2.0
+
+gps_satellites:
+  warning_below: 8
+  critical_below: 5
+  hysteresis: 1
+
+link:
+  warning_above_s: 0.5
+  critical_above_s: 2.0
