@@ -35,8 +35,8 @@ Every time the ESP32 sends a reading, it sends one line of text called a **packe
 | 11 | `hum_pct` | % | Humidity | BME280 |
 | 12 | `lat` | degrees | Latitude | 6 decimals. Last known value when `fix` is 0 |
 | 13 | `lon` | degrees | Longitude | 6 decimals. Last known value when `fix` is 0 |
-| 14 | `alt_gps_m` | m | GPS altitude | From the MAX-M10S. Last known value when `fix` is 0 |
-| 15 | `speed_mps` | m/s | Ground speed | From the MAX-M10S. Last known value when `fix` is 0 |
+| 14 | `alt_gps_m` | m | GPS altitude | From the NEO-7M. Last known value when `fix` is 0 |
+| 15 | `speed_mps` | m/s | Ground speed | From the NEO-7M. Last known value when `fix` is 0 |
 | 16 | `sats` | count | Satellites in use | GPS quality |
 | 17 | `fix` | 0 or 1 | GPS fix | 1 means the position is valid |
 | 18 | `vbat_v` | V | Battery voltage | Read through a resistor divider on an ESP32 ADC1 pin |
@@ -98,6 +98,12 @@ The BMI270 board has its own axis markings. The **firmware** must swap or flip t
 
 The firmware sends the last known `lat`, `lon`, `alt_gps_m` and `speed_mps` unchanged. These numbers are old, so the dashboard greys out position, speed and heading while `fix` is 0.
 
+## GPS update rate
+
+The NEO-7M gives a new position about once per second by default, while packets leave the ESP32 about 10 times per second. So `lat`, `lon`, `alt_gps_m`, `speed_mps`, `sats` and `fix` repeat for about 10 packets in a row. That is normal, not a fault. The module can be set to faster updates (up to 10 per second) later, but version 1 does not need it.
+
+The simulator copies this behaviour: it changes the GPS fields once per second.
+
 ## When a sensor fails
 
 The firmware never sends `nan`, `inf`, empty fields or invented numbers. If a sensor read fails, it skips sending that packet but still adds 1 to `seq`. The laptop sees this as a lost packet. If we later need to report which sensor failed, a status field will be added at the end in version 2.
@@ -117,7 +123,7 @@ The firmware never sends `nan`, `inf`, empty fields or invented numbers. If a se
 | Vertical speed | How fast the smoothed relative altitude changes |
 | Total acceleration (g) | `ax`, `ay`, `az` combined, divided by 9.81 |
 | Roll and pitch | `ax`, `ay`, `az` (the gyro rates help smooth them) |
-| Heading (GPS) | Direction from the position about 1 s ago to the current one. Valid only when `fix` is 1 and `speed_mps` is above about 1 |
+| Heading (GPS) | Direction from the previous GPS position to the newest different one, so it updates about once per second. Valid only when `fix` is 1 and `speed_mps` is above about 1 |
 | Packet loss | Gaps in `seq` |
 | Time since last packet | The laptop's own clock |
 
@@ -126,9 +132,13 @@ The BMI270 has no magnetometer, so yaw cannot be measured directly. That is why 
 ## To check on the real hardware
 
 - [ ] Once the BMI270 is mounted: level gives `az` ≈ +9.81, nose up gives positive `ax`, right wing down gives positive `ay`. Fix any mismatch in the firmware.
+- [ ] Check that the "BME280" really is a BME280. Some modules sold under that name are BMP280, which has no humidity sensor. The chip ID register reads 0x60 for a BME280.
+- [ ] Compare `vbat_v` with a multimeter reading of the battery and correct any difference in the firmware. The ESP32's ADC is not very accurate.
+- [ ] Test the GPS outdoors with a clear view of the sky. Indoors it will show `fix` = 0. A cold start can take about 30 s.
 
 ## Change log
 
 | Version | Date | Change |
 | --- | --- | --- |
 | 1 | 21 Nov 2026 | First version, 18 fields. Axes, no-fix behaviour and sensor failure behaviour decided |
+| 1 | 21 Nov 2026 | GPS module is now the NEO-7M. GPS update rate and heading wording updated. Field list unchanged |

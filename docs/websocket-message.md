@@ -90,6 +90,11 @@ Example, in the circling phase with the battery getting low:
 - When `heading_valid` is `true`, show the number.
 - When `heading_valid` is `false` (not moving, or no GPS fix), `heading_deg` holds the last good value. Grey it out or show `--`.
 - Label it "Heading (GPS)", not "Yaw".
+- It changes about once per second, because the GPS gives a new position about once per second.
+
+## GPS values update slowly
+
+Messages arrive about 10 times per second, but the GPS (NEO-7M) gives a new position about once per second. So `lat`, `lon`, `speed_mps`, `sats` and `fix` stay the same for about 10 messages in a row. That is normal. The map marker will move in small jumps once per second, and the dashboard should not treat the repeats as an error.
 
 ## When `fix` is 0
 
@@ -164,3 +169,4 @@ Its `alerts` list holds every alert still active (the last known ones plus the `
 | Version | Date | Change |
 | --- | --- | --- |
 | 1 | 21 Nov 2026 | First version, including `heading_deg`, `heading_valid` and the `link` message |
+| 1 | 21 Nov 2026 | GPS module is now the NEO-7M. Added the note that GPS values update about once per second. Fields unchanged |
