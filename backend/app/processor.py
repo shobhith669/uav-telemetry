@@ -20,6 +20,7 @@ class TelemetryProcessor:
         self._prev_lat: float | None = None
         self._prev_lon: float | None = None
         self._heading_deg: float | None = None
+        self._heading_fresh = False  # True once a new bearing has been worked out since the last interruption
 
     def process(self, pkt: Packet) -> dict:
         # 1. Relative altitude from pressure (first 2 s sets ground zero)
@@ -27,7 +28,8 @@ class TelemetryProcessor:
         vspeed_mps: float | None = None
 
         if self._p0 is None:
-            self._press_samples.append(pkt.press_pa)
+            if pkt.press_pa > 0:  # a 0 reading would make "ground level" 0 and break the maths below
+                self._press_samples.append(pkt.press_pa)
             if len(self._press_samples) >= GROUND_CALIB_SAMPLES:
                 self._p0 = sum(self._press_samples) / len(self._press_samples)
 
@@ -74,11 +76,19 @@ class TelemetryProcessor:
             if self._prev_lat is not None and (pkt.lat != self._prev_lat or pkt.lon != self._prev_lon):
                 self._heading_deg = round(self._bearing(self._prev_lat, self._prev_lon, pkt.lat, pkt.lon), 1)
                 self._prev_lat, self._prev_lon = pkt.lat, pkt.lon
+                self._heading_fresh = True
             elif self._prev_lat is None:
                 self._prev_lat, self._prev_lon = pkt.lat, pkt.lon
-            heading_valid = self._heading_deg is not None
+            heading_valid = self._heading_deg is not None and self._heading_fresh
         elif pkt.fix == 1:
             self._prev_lat, self._prev_lon = pkt.lat, pkt.lon
+            self._heading_fresh = False
+        else:
+            # No fix: lat/lon are old. Forget them, so the first position after the fix comes
+            # back is not compared with one from before the loss (that gave a wrong heading).
+            self._prev_lat = None
+            self._prev_lon = None
+            self._heading_fresh = False
 
         return {
             "seq": pkt.seq,

@@ -22,13 +22,23 @@ class AnomalyEngine:
         warn_msg: str,
         crit_msg: str,
         now_ms: int,
+        crit_recovered: bool = True,
     ):
-        target_sev = "CRITICAL" if crit_hit else ("WARNING" if warn_hit else None)
+        prev = self._active.get(param)
+        if crit_hit:
+            target_sev = "CRITICAL"
+        elif prev is not None and prev["severity"] == "CRITICAL" and not crit_recovered:
+            # Stay CRITICAL until the value is clearly past the critical limit. Without this,
+            # a value sitting on the limit flips CRITICAL <-> WARNING on every packet.
+            target_sev = "CRITICAL"
+        elif warn_hit:
+            target_sev = "WARNING"
+        else:
+            target_sev = None
 
         if target_sev is not None:
             self._counts[param] = self._counts.get(param, 0) + 1
             if self._counts[param] >= self.persist or param in self._active:
-                prev = self._active.get(param)
                 since = prev["since_unix_ms"] if prev else now_ms
                 self._active[param] = {
                     "parameter": param,
@@ -39,8 +49,12 @@ class AnomalyEngine:
                 }
         else:
             self._counts[param] = 0
-            if param in self._active and recovered:
-                del self._active[param]
+            if param in self._active:
+                if recovered:
+                    del self._active[param]
+                else:
+                    # Still inside the hysteresis band: keep the alert, but show the current value
+                    self._active[param]["value"] = round(value, 2)
 
     def evaluate(self, data: dict, now_ms: int) -> list[dict]:
         # Clear any link alert because a packet just arrived
@@ -54,6 +68,7 @@ class AnomalyEngine:
             warn_hit=v < c["warning_below"],
             crit_hit=v < c["critical_below"],
             recovered=v >= c["warning_below"] + c["hysteresis"],
+            crit_recovered=v >= c["critical_below"] + c["hysteresis"],
             warn_msg="Battery voltage low",
             crit_msg="Battery voltage critical",
             now_ms=now_ms,
@@ -67,6 +82,7 @@ class AnomalyEngine:
             warn_hit=tilt > c["warning_above"],
             crit_hit=tilt > c["critical_above"],
             recovered=tilt <= c["warning_above"] - c["hysteresis"],
+            crit_recovered=tilt <= c["critical_above"] - c["hysteresis"],
             warn_msg="Excessive tilt angle",
             crit_msg="Critical tilt angle",
             now_ms=now_ms,
@@ -80,6 +96,7 @@ class AnomalyEngine:
             warn_hit=g > c["warning_above"],
             crit_hit=g > c["critical_above"],
             recovered=g <= c["warning_above"] - c["hysteresis"],
+            crit_recovered=g <= c["critical_above"] - c["hysteresis"],
             warn_msg="High G-force",
             crit_msg="Critical G-force",
             now_ms=now_ms,
@@ -94,6 +111,7 @@ class AnomalyEngine:
                 warn_hit=descent > c["warning_above"],
                 crit_hit=descent > c["critical_above"],
                 recovered=descent <= c["warning_above"] - c["hysteresis"],
+                crit_recovered=descent <= c["critical_above"] - c["hysteresis"],
                 warn_msg="High descent rate",
                 crit_msg="Critical descent rate",
                 now_ms=now_ms,
@@ -107,6 +125,7 @@ class AnomalyEngine:
             warn_hit=temp > c["warning_above"],
             crit_hit=temp > c["critical_above"],
             recovered=temp <= c["warning_above"] - c["hysteresis"],
+            crit_recovered=temp <= c["critical_above"] - c["hysteresis"],
             warn_msg="Enclosure temperature high",
             crit_msg="Enclosure temperature critical",
             now_ms=now_ms,
@@ -121,6 +140,7 @@ class AnomalyEngine:
             warn_hit=sats < c["warning_below"],
             crit_hit=no_fix or sats < c["critical_below"],
             recovered=(not no_fix) and sats >= c["warning_below"] + c["hysteresis"],
+            crit_recovered=(not no_fix) and sats >= c["critical_below"] + c["hysteresis"],
             warn_msg="Low GPS satellite count",
             crit_msg="GPS fix lost" if no_fix else "Critical GPS satellite count",
             now_ms=now_ms,
