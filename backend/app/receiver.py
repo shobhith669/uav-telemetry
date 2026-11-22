@@ -26,18 +26,18 @@ def main():
 
     try:
         while True:
-            now_ms = int(time.time() * 1000)
             try:
                 data, _ = sock.recvfrom(4096)
             except socket.timeout:
                 if last_rx_wall is not None:
                     gap = time.monotonic() - last_rx_wall
-                    alerts = anomaly.evaluate_link_gap(gap, now_ms)
+                    alerts = anomaly.evaluate_link_gap(gap, int(time.time() * 1000))
                     for a in alerts:
                         if a["parameter"] == "link":
                             print(f"  >>> [{a['severity']}] {a['message']}")
                 continue
 
+            now_ms = int(time.time() * 1000)  # taken after the packet arrived, not before waiting for it
             last_rx_wall = time.monotonic()
             line = data.decode("utf-8", errors="replace").strip()
             pkt = parse_packet(line)
@@ -51,8 +51,13 @@ def main():
                 packets_lost += pkt.seq - last_seq - 1
             last_seq = pkt.seq
 
-            telem = processor.process(pkt)
-            alerts = anomaly.evaluate(telem, now_ms)
+            try:
+                telem = processor.process(pkt)
+                alerts = anomaly.evaluate(telem, now_ms)
+            except Exception as exc:  # one bad packet must never stop the backend
+                packets_invalid += 1
+                print(f"[ERROR #{packets_invalid}] Skipped packet seq={pkt.seq}: {type(exc).__name__}: {exc}")
+                continue
 
             alt_str = f"{telem['alt_rel_m']:5.1f}m" if telem["alt_rel_m"] is not None else "  -- "
             vs_str = f"{telem['vspeed_mps']:+5.1f}m/s" if telem["vspeed_mps"] is not None else "   --  "

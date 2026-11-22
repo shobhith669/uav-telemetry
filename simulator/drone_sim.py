@@ -76,11 +76,12 @@ def main():
                 # Tilt spike near 55 deg (65-68 s)
                 if 65.0 <= mission_t < 68.0:
                     roll_deg = 55.0
-                # Sudden 18 m altitude drop (80-83 s, then climbs back)
+                # Sudden 27 m altitude drop at 9 m/s (80-83 s, then climbs back). 9 m/s is well past
+                # the critical descent limit (6 m/s), so the alert is clearly CRITICAL, not on the line.
                 if 80.0 <= mission_t < 83.0:
-                    rel_alt -= 6.0 * (mission_t - 80.0)
+                    rel_alt -= 9.0 * (mission_t - 80.0)
                 elif 83.0 <= mission_t < 89.0:
-                    rel_alt -= 18.0 - 3.0 * (mission_t - 83.0)
+                    rel_alt -= 27.0 - 4.5 * (mission_t - 83.0)
                 # 3.5 s packet gap (95-98.5 s)
                 if 95.0 <= mission_t < 98.5:
                     skip_packet = True
