@@ -19,6 +19,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -175,6 +176,60 @@ body {
 .st-stale .hz, .st-stale .cmp { opacity: .45; }
 .dir { display: block; font-size: 14px; letter-spacing: .12em; color: var(--muted); margin-top: 4px; }
 
+/* ---------- tabs and graph tools ---------- */
+.tabs { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.tabset { display: flex; gap: 4px; }
+.tab {
+  min-width: 96px; min-height: 44px; padding: 0 16px; font-family: inherit; font-size: 13px; letter-spacing: .16em;
+  background: transparent; color: var(--muted); border: 1px solid transparent; border-bottom: 3px solid transparent;
+  border-radius: 4px 4px 0 0; cursor: pointer;
+}
+.tab:hover { color: var(--text); background: var(--surface); }
+.tab.on { color: var(--text); background: var(--surface); border-color: var(--line); border-bottom-color: var(--accent); }
+.tab:focus-visible, .bb:focus-visible, .plot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.gtools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wins { display: flex; gap: 6px; }
+.curs { font-size: 12px; letter-spacing: .08em; color: var(--muted); min-width: 150px; text-align: right; }
+.curs.held { color: var(--accent); }
+.bb {
+  min-height: 44px; padding: 0 14px; font-family: inherit; font-size: 12.5px; letter-spacing: .08em;
+  background: var(--surface); border: 1px solid var(--line2); color: var(--text); border-radius: 4px; cursor: pointer;
+}
+.bb:hover { border-color: var(--accent); }
+.bb.sq { min-width: 56px; padding: 0 10px; }
+.bb[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+
+/* ---------- graph strips ---------- */
+#strips { display: flex; flex-direction: column; gap: 10px; }
+.strip {
+  position: relative; padding: 8px 12px 6px; display: flex; flex-direction: column; gap: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+}
+.strip::before { content: ""; position: absolute; top: 0; left: 14px; width: 22px; height: 3px; background: var(--accent); }
+.strip.st-warn { border-color: var(--warn); box-shadow: 0 0 0 1px rgba(255, 194, 51, .3), 0 0 18px rgba(255, 194, 51, .12); }
+.strip.st-crit { border-color: var(--crit); box-shadow: 0 0 0 1px rgba(255, 77, 77, .4), 0 0 20px rgba(255, 77, 77, .18); }
+.strip.st-stale { border-style: dashed; border-color: #3A4450; }
+.sh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-top: 3px; min-height: 38px; }
+.shl { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.shn { display: flex; align-items: center; gap: 8px; }
+.chn { font-size: 10px; letter-spacing: .1em; color: var(--dim); }
+.sn { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .16em; color: var(--text); white-space: nowrap; }
+.smm { font-size: 10.5px; letter-spacing: .02em; color: var(--dim); white-space: nowrap; }
+.shr { display: flex; align-items: baseline; gap: 16px; }
+.rd { display: inline-flex; align-items: baseline; gap: 5px; }
+.rd .sw { align-self: center; width: 10px; height: 3px; border-radius: 1px; }
+.rd .sw.r1 { background: #6F8AA6; }
+.rd .sw.r2 { background: #E3ECF5; }
+.rd .k { font-size: 10px; letter-spacing: .1em; color: var(--muted); }
+.rd .v { font-size: 22px; font-weight: 700; line-height: 1; color: var(--text); }
+.rd .u { font-size: 11px; color: var(--muted); }
+.st-warn .rd .v { color: var(--warn); }
+.st-crit .rd .v { color: var(--crit-text); }
+.st-stale .rd .v { opacity: .4; }
+.plot { height: 132px; width: 100%; background: var(--inset); border-radius: 3px; cursor: crosshair; }
+.nolib { margin: 0; padding: 16px; color: var(--crit-text); }
+
 /* ---------- motion ---------- */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes blink { 50% { opacity: .15; } }
@@ -191,6 +246,7 @@ body {
 }
 
 @media (max-width: 620px) {
+  .curs { min-width: 0; text-align: left; }
   .cards { grid-template-columns: 1fr; }
   .bt { font-size: 18px; }
   .tc { font-size: 24px; }

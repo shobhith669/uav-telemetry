@@ -7,6 +7,7 @@ import asyncio
 import socket
 import threading
 import time
+from collections import deque
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from backend.app.pipeline import Pipeline
 DASHBOARD_DIR = Path(__file__).resolve().parents[2] / "dashboard"
 UDP_HOST = "0.0.0.0"
 UDP_PORT = 5005
+HISTORY_LEN = 6000  # recent telemetry kept for pages opened late: about 10 minutes at 10 per second
 
 
 class Hub:
@@ -26,24 +28,33 @@ class Hub:
 
     def __init__(self):
         self.clients: set[WebSocket] = set()
-        self.latest: dict | None = None  # newest message, so a page opened late is not blank
+        self.latest: dict | None = None  # newest message of any type
+        self.history: deque = deque(maxlen=HISTORY_LEN)  # recent telemetry messages
+        self.lock = asyncio.Lock()  # so a new page gets its history and the live stream without gaps
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
-        self.clients.add(ws)
-        if self.latest is not None:
-            await ws.send_json(self.latest)
+        async with self.lock:
+            # A page opened late (or refreshed) first gets what it missed, so its graphs are not empty.
+            if self.history:
+                await ws.send_json({"type": "history", "version": 1, "messages": list(self.history)})
+            if self.latest is not None and self.latest["type"] != "telemetry":
+                await ws.send_json(self.latest)  # e.g. a "link" message while packets are missing
+            self.clients.add(ws)
 
     def disconnect(self, ws: WebSocket):
         self.clients.discard(ws)
 
     async def broadcast(self, msg: dict):
-        self.latest = msg
-        for ws in list(self.clients):
-            try:
-                await ws.send_json(msg)
-            except Exception:  # that page went away
-                self.clients.discard(ws)
+        async with self.lock:
+            self.latest = msg
+            if msg["type"] == "telemetry":
+                self.history.append(msg)
+            for ws in list(self.clients):
+                try:
+                    await ws.send_json(msg)
+                except Exception:  # that page went away
+                    self.clients.discard(ws)
 
 
 def udp_loop(pipeline: Pipeline, hub: Hub, loop: asyncio.AbstractEventLoop, stop: threading.Event, sock: socket.socket):
@@ -85,10 +96,12 @@ def create_app(udp_port: int = UDP_PORT) -> FastAPI:
                 f"or server is probably still running. Close it and try again."
             ) from exc
         sock.settimeout(0.5)
+        pipeline = Pipeline()
+        app.state.pipeline = pipeline
         stop = threading.Event()
         thread = threading.Thread(
             target=udp_loop,
-            args=(Pipeline(), hub, asyncio.get_running_loop(), stop, sock),
+            args=(pipeline, hub, asyncio.get_running_loop(), stop, sock),
             daemon=True,
         )
         thread.start()
@@ -110,6 +123,11 @@ def create_app(udp_port: int = UDP_PORT) -> FastAPI:
             pass
         finally:
             hub.disconnect(ws)
+
+    @app.get("/api/thresholds")
+    async def thresholds():
+        # The same limits the alert engine uses (config/thresholds.yaml), so the graphs can draw them
+        return app.state.pipeline.anomaly.cfg
 
     @app.get("/")
     async def index():

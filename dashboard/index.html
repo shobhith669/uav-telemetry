@@ -39,8 +39,21 @@
     </div>
   </section>
 
+  <!-- Tabs: FLIGHT shows the nine cards, GRAPHS shows the history (the tools on the right belong to GRAPHS) -->
+  <nav class="tabs" aria-label="Dashboard views">
+    <div class="tabset">
+      <button class="tab on" id="tab-flight" type="button" aria-pressed="true">FLIGHT</button>
+      <button class="tab" id="tab-graphs" type="button" aria-pressed="false">GRAPHS</button>
+    </div>
+    <div class="gtools" id="gtools" hidden>
+      <span class="curs mono" id="cursText">LIVE</span>
+      <button class="bb" id="followBtn" type="button" hidden>FOLLOW LIVE</button>
+      <div class="wins" id="wins" role="group" aria-label="Time window"></div>
+    </div>
+  </nav>
+
   <!-- The nine measurements -->
-  <main class="cards">
+  <main class="cards" id="pane-flight">
 
     <article class="tile" id="t-g">
       <div class="th"><h2 class="lbl">G-FORCE</h2><span class="tag" id="tag-g">WAIT</span></div>
@@ -122,7 +135,14 @@
     </article>
 
   </main>
+
+  <!-- The history: one strip per channel, drawn by graphs.js -->
+  <section id="pane-graphs" hidden>
+    <div id="strips"></div>
+  </section>
 </div>
+<script src="/static/vendor/echarts.min.js"></script>
+<script src="/static/graphs.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

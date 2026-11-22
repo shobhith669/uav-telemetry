@@ -3,12 +3,19 @@ import socket
 import threading
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
+from backend.app.pipeline import CONFIG_PATH
 
-PACKET = (b"7,700,0.02,-0.05,9.81,0.1,-0.2,0.0,31.4,91150,58.2,"
-          b"12.923700,77.498900,880.0,0.0,11,1,4.12\n")
+
+def packet(seq):
+    return (f"{seq},{seq * 100},0.02,-0.05,9.81,0.1,-0.2,0.0,31.4,91150,58.2,"
+            f"12.923700,77.498900,880.0,0.0,11,1,4.12\n").encode()
+
+
+PACKET = packet(7)
 
 
 def free_udp_port():
@@ -61,14 +68,27 @@ def test_udp_packet_arrives_in_the_browser_as_telemetry():
     assert msg["alerts"] == []
 
 
-def test_a_page_opened_late_gets_the_newest_message_at_once():
+def test_a_page_opened_late_gets_the_history_first_then_live_messages():
     port = free_udp_port()
     with TestClient(create_app(udp_port=port)) as client:
         with client.websocket_connect("/ws") as first:
-            send_udp(port)
+            send_udp(port, packet(7))
+            receive(first)
+            send_udp(port, packet(8))
             receive(first)
             with client.websocket_connect("/ws") as late:
-                assert receive(late)["seq"] == 7
+                history = receive(late)
+                assert history["type"] == "history"
+                assert [m["seq"] for m in history["messages"]] == [7, 8]
+                send_udp(port, packet(9))
+                assert receive(late)["seq"] == 9  # and the live stream carries on
+
+
+def test_thresholds_endpoint_returns_the_limits_the_alert_engine_uses():
+    port = free_udp_port()
+    with TestClient(create_app(udp_port=port)) as client:
+        data = client.get("/api/thresholds").json()
+    assert data == yaml.safe_load(CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 def test_bad_udp_packet_sends_nothing_but_the_next_good_one_counts_it():
