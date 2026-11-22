@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Black Box · UAV flight recorder</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- Top strip: who we are, are we recording, flight time, packet id, link status -->
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <div class="bt">BLACK BOX</div>
+        <div class="bs">UAV FLIGHT DATA RECORDER · FDR-1</div>
+      </div>
+    </div>
+    <div class="tape">
+      <span class="reel still" id="reel1" aria-hidden="true"></span>
+      <span class="reel still" id="reel2" aria-hidden="true"></span>
+      <span class="rec" id="rec"><i class="recdot hollow"></i><span id="recText">OFFLINE</span></span>
+      <div class="tcw"><span class="tcl">FLIGHT TIME</span><span class="tc mono" id="flightTime">T+ --:--</span></div>
+      <div class="tcw"><span class="tcl">PACKET ID</span><span class="tc2 mono" id="seq">--</span></div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="linkChip"><i></i><span id="linkText">CONNECTING</span></span>
+      <span class="chip mono" id="lossChip">LOST 0 · BAD 0</span>
+    </div>
+  </header>
+
+  <!-- Master caution band: the most important thing right now -->
+  <section class="band b-gap" id="band" aria-live="polite">
+    <div>
+      <div class="bt1" id="bandTitle">CONNECTING…</div>
+      <div class="bt2" id="bandText">Opening the connection to the backend</div>
+    </div>
+  </section>
+
+  <!-- The nine measurements -->
+  <main class="cards">
+
+    <article class="tile" id="t-g">
+      <div class="th"><h2 class="lbl">G-FORCE</h2><span class="tag" id="tag-g">WAIT</span></div>
+      <div class="tv"><span class="val mono" id="val-g">--</span><span class="unit">g</span></div>
+      <div class="track"><span class="fill" id="fill-g"></span></div>
+      <div class="foot mono" id="foot-g">MIN -- · MAX --</div>
+    </article>
+
+    <article class="tile" id="t-temp">
+      <div class="th"><h2 class="lbl">TEMPERATURE</h2><span class="tag" id="tag-temp">WAIT</span></div>
+      <div class="tv"><span class="val mono" id="val-temp">--</span><span class="unit">°C</span></div>
+      <div class="track"><span class="fill" id="fill-temp"></span></div>
+      <div class="foot mono" id="foot-temp">MIN -- · MAX --</div>
+    </article>
+
+    <article class="tile" id="t-gps">
+      <div class="th"><h2 class="lbl">GPS</h2><span class="tag" id="tag-gps">WAIT</span></div>
+      <div class="gpsrow">
+        <span class="val s mono" id="val-sats">--</span><span class="unit">SATS</span>
+        <span class="fixchip" id="fixchip">NO FIX</span>
+      </div>
+      <div class="coords mono" id="coords"><span id="lat">--</span><span id="lon">--</span></div>
+      <div class="foot mono" id="foot-gps">WAITING FOR GPS</div>
+    </article>
+
+    <article class="tile" id="t-alt">
+      <div class="th"><h2 class="lbl">ALTITUDE</h2><span class="tag" id="tag-alt">WAIT</span></div>
+      <div class="tv"><span class="val mono" id="val-alt">--</span><span class="unit">m</span></div>
+      <div class="track"><span class="fill" id="fill-alt"></span></div>
+      <div class="foot mono" id="foot-alt">MIN -- · MAX --</div>
+    </article>
+
+    <article class="tile" id="t-vs">
+      <div class="th"><h2 class="lbl">VERTICAL SPEED</h2><span class="tag" id="tag-vs">WAIT</span></div>
+      <div class="tv"><span class="val mono" id="val-vs">--</span><span class="unit">m/s</span></div>
+      <div class="track"><span class="center"></span><span class="fill" id="fill-vs"></span></div>
+      <div class="foot mono" id="foot-vs">MIN -- · MAX --</div>
+    </article>
+
+    <article class="tile" id="t-spd">
+      <div class="th"><h2 class="lbl">GROUND SPEED</h2><span class="tag" id="tag-spd">WAIT</span></div>
+      <div class="tv"><span class="val mono" id="val-spd">--</span><span class="unit">m/s</span></div>
+      <div class="track"><span class="fill" id="fill-spd"></span></div>
+      <div class="foot mono" id="foot-spd">MIN -- · MAX --</div>
+    </article>
+
+    <article class="tile" id="t-batt">
+      <div class="th"><h2 class="lbl">BATTERY</h2><span class="tag" id="tag-batt">WAIT</span></div>
+      <div class="tv"><span class="val mono" id="val-batt">--</span><span class="unit">V</span></div>
+      <div class="track seg"><span class="fill" id="fill-batt"></span></div>
+      <div class="foot mono" id="foot-batt">MIN -- · MAX --</div>
+    </article>
+
+    <article class="tile" id="t-att">
+      <div class="th"><h2 class="lbl">ATTITUDE</h2><span class="tag" id="tag-att">WAIT</span></div>
+      <div class="inst">
+        <div class="stats">
+          <div class="stat"><span class="k">ROLL</span><span class="v mono" id="val-roll">--</span></div>
+          <div class="stat"><span class="k">PITCH</span><span class="v mono" id="val-pitch">--</span></div>
+        </div>
+        <div class="hz" aria-hidden="true"><div class="hzw" id="horizon"></div><div class="hzc"></div></div>
+      </div>
+      <div class="foot mono" id="foot-att">TILT --</div>
+    </article>
+
+    <article class="tile" id="t-hdg">
+      <div class="th"><h2 class="lbl">HEADING (GPS)</h2><span class="tag" id="tag-hdg">WAIT</span></div>
+      <div class="inst">
+        <div>
+          <span class="val s mono" id="val-hdg">--</span>
+          <span class="dir" id="dir-hdg">&nbsp;</span>
+        </div>
+        <div class="cmp" aria-hidden="true">
+          <span class="cl n">N</span><span class="cl e">E</span><span class="cl s">S</span><span class="cl w">W</span>
+          <div class="needle" id="needle"></div>
+        </div>
+      </div>
+      <div class="foot mono" id="foot-hdg">DIRECTION OF TRAVEL</div>
+    </article>
+
+  </main>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>
