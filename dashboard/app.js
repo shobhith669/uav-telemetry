@@ -1,6 +1,7 @@
 "use strict";
 
-/* Black Box dashboard, Step 4.
+/* Black Box dashboard, Steps 4 and 5.
+   (The GRAPHS tab is in graphs.js, which is loaded before this file.)
    1. Open a WebSocket to the backend (ws://localhost:8000/ws).
    2. Every message that arrives updates `state`.
    3. render() redraws the header, the caution band and the nine cards from `state`.
@@ -209,18 +210,27 @@ function render() {
   renderGps();
   renderAttitude();
   renderHeading();
+  Graphs.touch();   // the strips on the GRAPHS tab take their colours from the same state
 }
 
 // ---------- messages from the backend ----------
+function applyTelemetry(msg) {
+  state.last = msg;
+  state.linkDown = false;
+  state.alerts = msg.alerts || [];
+  for (const c of NUMBER_CARDS) {
+    if (c.needsFix && msg.fix === 0) continue;  // an old repeated value says nothing new
+    trackMinMax(c.id, msg[c.key]);
+  }
+  Graphs.add(msg);                              // the GRAPHS tab keeps the history
+}
+
 function handle(msg) {
   if (msg.type === "telemetry") {
-    state.last = msg;
-    state.linkDown = false;
-    state.alerts = msg.alerts || [];
-    for (const c of NUMBER_CARDS) {
-      if (c.needsFix && msg.fix === 0) continue;  // an old repeated value says nothing new
-      trackMinMax(c.id, msg[c.key]);
-    }
+    applyTelemetry(msg);
+  } else if (msg.type === "history") {
+    // sent once when the page opens: the recent past, so a refreshed page does not start with empty graphs
+    for (const m of msg.messages || []) applyTelemetry(m);
   } else if (msg.type === "link") {
     state.linkDown = true;
     state.sinceLast = msg.since_last_packet_s;
@@ -230,6 +240,22 @@ function handle(msg) {
   }
   render();
 }
+
+// ---------- tabs ----------
+const TABS = { flight: "pane-flight", graphs: "pane-graphs" };
+
+function selectTab(name) {
+  for (const [tab, paneId] of Object.entries(TABS)) {
+    $(paneId).hidden = tab !== name;
+    $("tab-" + tab).classList.toggle("on", tab === name);
+    $("tab-" + tab).setAttribute("aria-pressed", String(tab === name));
+  }
+  $("gtools").hidden = name !== "graphs";
+  if (name === "graphs") Graphs.show(); else Graphs.hide();
+  history.replaceState(null, "", name === "flight" ? location.pathname : "#" + name);  // a refresh keeps the tab
+}
+$("tab-flight").addEventListener("click", () => selectTab("flight"));
+$("tab-graphs").addEventListener("click", () => selectTab("graphs"));
 
 // ---------- connection ----------
 function connect() {
@@ -249,3 +275,4 @@ function connect() {
 
 render();
 connect();
+if (location.hash === "#graphs") selectTab("graphs");

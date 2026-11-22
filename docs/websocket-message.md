@@ -1,6 +1,6 @@
 # WebSocket Message (version 1): backend to dashboard
 
-Last updated: 21 Nov 2026
+Last updated: 22 Nov 2026
 Status: **AGREED**
 Used by: backend (sends), dashboard (receives)
 
@@ -150,6 +150,29 @@ When no packet has arrived for more than 0.5 s there are no telemetry messages, 
 
 Its `alerts` list holds every alert still active (the last known ones plus the `link` alert), so nothing disappears from the dashboard while the drone is silent. The dashboard also shows "No data" and the time since the last packet.
 
+## The history message
+
+When a page connects (or is refreshed), the backend first sends the recent past, so the graphs are not empty. It sends this once, before any live message:
+
+```json
+{
+  "type": "history",
+  "version": 1,
+  "messages": [ { "type": "telemetry", "...": "..." }, { "type": "telemetry", "...": "..." } ]
+}
+```
+
+- `messages` holds the last telemetry messages the backend has seen (up to about 10 minutes), oldest first. Each one is a normal `telemetry` message.
+- The dashboard handles each one as if it had just arrived. If a message is older than one it already has, it skips it.
+- If packets are missing at that moment, a `link` message follows right after the history.
+
+## Other things the backend serves
+
+| Address | What it is |
+| --- | --- |
+| `/` | The dashboard page |
+| `/api/thresholds` | The limits from `config/thresholds.yaml` as JSON, exactly as the alert engine uses them. The graphs draw their warning and critical zones from this, so the limits live in one place only |
+
 ## Rules
 
 1. Every message has a `type`. The dashboard ignores types and fields it does not know, so new things can be added safely.
@@ -170,3 +193,4 @@ Its `alerts` list holds every alert still active (the last known ones plus the `
 | --- | --- | --- |
 | 1 | 21 Nov 2026 | First version, including `heading_deg`, `heading_valid` and the `link` message |
 | 1 | 21 Nov 2026 | GPS module is now the NEO-7M. Added the note that GPS values update about once per second. Fields unchanged |
+| 1 | 22 Nov 2026 | Added the `history` message (sent once when a page connects) and the `/api/thresholds` address. Nothing existing changed |
