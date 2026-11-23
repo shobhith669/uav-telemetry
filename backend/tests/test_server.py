@@ -54,6 +54,12 @@ def test_dashboard_page_and_files_are_served():
         assert "BLACK BOX" in page.text
         assert client.get("/static/style.css").status_code == 200
         assert client.get("/static/app.js").status_code == 200
+        # every file the page loads must be served, or the page breaks (the map and graphs libraries are local files)
+        for path in ("/static/graphs.js", "/static/map.js", "/static/vendor/echarts.min.js",
+                     "/static/vendor/leaflet/leaflet.js", "/static/vendor/leaflet/leaflet.css"):
+            assert client.get(path).status_code == 200, path
+        assert 'id="tab-map"' in page.text
+        assert 'id="p-alerts"' in page.text
 
 
 def test_udp_packet_arrives_in_the_browser_as_telemetry():

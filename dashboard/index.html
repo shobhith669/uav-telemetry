@@ -4,9 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Black Box · UAV flight recorder</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23FF6A1F'/%3E%3Crect x='8' y='8' width='16' height='16' rx='3' fill='%230A0C0F'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23FF6A1F'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<!-- The whole page is exactly one window tall. Nothing on the page itself scrolls:
+     only the left column (.left) scrolls, and the alert panel on the right stays where it is. -->
 <div class="app">
 
   <!-- Top strip: who we are, are we recording, flight time, packet id, link status -->
@@ -39,110 +43,376 @@
     </div>
   </section>
 
-  <!-- Tabs: FLIGHT shows the nine cards, GRAPHS shows the history (the tools on the right belong to GRAPHS) -->
-  <nav class="tabs" aria-label="Dashboard views">
-    <div class="tabset">
-      <button class="tab on" id="tab-flight" type="button" aria-pressed="true">FLIGHT</button>
-      <button class="tab" id="tab-graphs" type="button" aria-pressed="false">GRAPHS</button>
+  <div class="main">
+
+    <!-- LEFT: tabs, then the active view. Only the view scrolls. -->
+    <div class="col">
+      <nav class="tabs" aria-label="Dashboard views">
+        <div class="tabset">
+          <button class="tab on" id="tab-flight" type="button" aria-pressed="true">FLIGHT</button>
+          <button class="tab" id="tab-graphs" type="button" aria-pressed="false">GRAPHS</button>
+          <button class="tab" id="tab-map" type="button" aria-pressed="false">MAP</button>
+        </div>
+        <div class="gtools" id="gtools" hidden>
+          <span class="curs mono" id="cursText">LIVE</span>
+          <button class="bb" id="followBtn" type="button" hidden>FOLLOW LIVE</button>
+          <div class="wins" id="wins" role="group" aria-label="Time window"></div>
+        </div>
+      </nav>
+
+      <!-- ===== FLIGHT: the 3D simulation, then the nine cards (three show first, six after scrolling) ===== -->
+      <div class="left" id="pane-flight">
+
+        <section class="scene" aria-label="Flight simulation">
+          <div class="stage" id="stage" role="img" aria-label="Flight simulation">
+            <div class="world cam-chase" id="world">
+              <div class="ground"><div class="gridrot" id="gridrot"><div class="grid" id="grid"></div></div></div>
+              <div class="rose"><span class="rl n">N</span><span class="rl e">E</span><span class="rl s">S</span><span class="rl w">W</span></div>
+              <div class="shadow" id="shadow"></div>
+              <div class="ring rc-off" id="ring"></div>
+              <div class="aline" id="aline"></div>
+              <div class="aline b" id="aline2"></div>
+
+              <div class="drone led-off bat-ok halt" id="drone">
+                <div class="skid l"></div><div class="skid r"></div>
+                <div class="lw a"><div class="leg"></div><div class="leg x"></div></div>
+                <div class="lw b"><div class="leg"></div><div class="leg x"></div></div>
+                <div class="lw c"><div class="leg"></div><div class="leg x"></div></div>
+                <div class="lw d"><div class="leg"></div><div class="leg x"></div></div>
+                <div class="pf bot"></div><div class="pf sS"></div><div class="pf sN"></div><div class="pf sE"></div><div class="pf sW"></div>
+                <div class="bf bot"></div><div class="bf sS"></div><div class="bf sN"></div><div class="bf sE"></div><div class="bf sW"></div><div class="bf top"></div>
+                <div class="nose"></div><div class="fdr"></div><div class="led"></div>
+                <div class="aw ne"><div class="arm t"></div><div class="arm b"></div></div>
+                <div class="aw se"><div class="arm t"></div><div class="arm b"></div></div>
+                <div class="aw sw"><div class="arm t"></div><div class="arm b"></div></div>
+                <div class="aw nw"><div class="arm t"></div><div class="arm b"></div></div>
+                <div class="mw ne"><div class="md d1"></div><div class="md d2"></div><div class="md d3"></div><div class="md d4"></div><div class="md d5"></div><div class="md d6"></div><div class="md d7"></div><div class="mled"></div><div class="rotor"><div class="blades"></div></div></div>
+                <div class="mw se"><div class="md d1"></div><div class="md d2"></div><div class="md d3"></div><div class="md d4"></div><div class="md d5"></div><div class="md d6"></div><div class="md d7"></div><div class="mled"></div><div class="rotor"><div class="blades"></div></div></div>
+                <div class="mw sw"><div class="md d1"></div><div class="md d2"></div><div class="md d3"></div><div class="md d4"></div><div class="md d5"></div><div class="md d6"></div><div class="md d7"></div><div class="mled"></div><div class="rotor"><div class="blades"></div></div></div>
+                <div class="mw nw"><div class="md d1"></div><div class="md d2"></div><div class="md d3"></div><div class="md d4"></div><div class="md d5"></div><div class="md d6"></div><div class="md d7"></div><div class="mled"></div><div class="rotor"><div class="blades"></div></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="veil" id="veil"><span id="veilText">CONNECTING</span></div>
+          <div class="hud h-chips" id="hchips"></div>
+
+          <div class="hud h-tl">
+            <div class="hbox" id="hb-alt">
+              <div class="th"><span class="lbl">ALTITUDE · REL</span><span class="tag" id="ht-alt">WAIT</span></div>
+              <div class="hrow">
+                <div>
+                  <div class="tv"><span class="val mono" id="hv-alt">--</span><span class="unit">m</span></div>
+                  <div class="hcap" id="hc-alt">ABOVE TAKEOFF</div>
+                </div>
+                <div class="vbar"><span class="vfill" id="hfill-alt"></span></div>
+              </div>
+            </div>
+            <div class="hbox" id="hb-vs">
+              <div class="th"><span class="lbl">VERTICAL SPEED</span><span class="tag" id="ht-vs">WAIT</span></div>
+              <div class="tv"><span class="arr lv" id="harr-vs"></span><span class="val mono" id="hv-vs">--</span><span class="unit">m/s</span></div>
+              <div class="hcap" id="hc-vs">LEVEL</div>
+            </div>
+          </div>
+
+          <div class="hud h-tr">
+            <div class="hbox" id="hb-spd">
+              <div class="th"><span class="lbl">GROUND SPEED</span><span class="tag" id="ht-spd">WAIT</span></div>
+              <div class="tv"><span class="val mono" id="hv-spd">--</span><span class="unit">m/s</span></div>
+              <div class="hcap" id="hc-spd">&nbsp;</div>
+            </div>
+            <div class="hbox" id="hb-batt">
+              <div class="th"><span class="lbl">BATTERY</span><span class="tag" id="ht-batt">WAIT</span></div>
+              <div class="tv"><span class="val mono" id="hv-batt">--</span><span class="unit">V</span></div>
+              <div class="track seg" style="margin-top: 6px"><span class="fill" id="hfill-batt"></span></div>
+            </div>
+          </div>
+
+          <div class="snote" id="snote" hidden>NO GPS FIX · HEADING AND SPEED ARE LAST KNOWN</div>
+
+          <div class="hud h-bl">
+            <div class="hbox" id="hb-att">
+              <div class="th"><span class="lbl">ATTITUDE</span><span class="tag" id="ht-att">WAIT</span></div>
+              <div class="stats">
+                <div class="stat"><span class="k">ROLL</span><span class="v mono" id="hv-roll">--</span></div>
+                <div class="stat"><span class="k">PITCH</span><span class="v mono" id="hv-pitch">--</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hud h-bc">
+            <div class="hbox" id="hb-hdg">
+              <div class="th"><span class="lbl">HEADING (GPS)</span><span class="tag" id="ht-hdg">WAIT</span></div>
+              <div class="hhead"><span class="val s mono" id="hv-hdg">--</span><span class="dir2" id="hd-hdg">&nbsp;</span></div>
+              <div class="tape2" id="tape2"></div>
+            </div>
+          </div>
+
+          <div class="hud h-br">
+            <span class="hcap2">GENERIC QUADCOPTER MODEL<br>NOSE = DIRECTION OF TRAVEL</span>
+            <div class="camrow" role="group" aria-label="Camera">
+              <button class="bb on" type="button" data-cam="chase" aria-pressed="true">CHASE</button>
+              <button class="bb" type="button" data-cam="side" aria-pressed="false">SIDE</button>
+              <button class="bb" type="button" data-cam="top" aria-pressed="false">TOP</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- The nine measurements. The first three sit under the simulation; scroll for the other six. -->
+        <section class="cards" id="cards">
+
+          <article class="tile sm" id="t-g">
+            <button class="hit" type="button" data-focus="total_acceleration" aria-label="G-force. Show its alert"></button>
+            <div class="th"><h2 class="lbl">G-FORCE</h2><span class="tag" id="tag-g">WAIT</span></div>
+            <div class="tv"><span class="val mono" id="val-g">--</span><span class="unit">g</span></div>
+            <div class="track"><span class="fill" id="fill-g"></span></div>
+            <div class="foot mono" id="foot-g">MIN -- · MAX --</div>
+          </article>
+
+          <article class="tile sm" id="t-temp">
+            <button class="hit" type="button" data-focus="enclosure_temperature" aria-label="Temperature. Show its alert"></button>
+            <div class="th"><h2 class="lbl">TEMPERATURE</h2><span class="tag" id="tag-temp">WAIT</span></div>
+            <div class="tv"><span class="val mono" id="val-temp">--</span><span class="unit">°C</span></div>
+            <div class="track"><span class="fill" id="fill-temp"></span></div>
+            <div class="foot mono" id="foot-temp">MIN -- · MAX --</div>
+          </article>
+
+          <article class="tile sm" id="t-gps">
+            <button class="hit" type="button" data-focus="gps_satellites" aria-label="GPS. Show its alert"></button>
+            <div class="th"><h2 class="lbl">GPS</h2><span class="tag" id="tag-gps">WAIT</span></div>
+            <div class="gpsrow">
+              <span class="val s mono" id="val-sats">--</span><span class="unit">SATS</span>
+              <span class="fixchip" id="fixchip">NO FIX</span>
+            </div>
+            <button class="coords mono" id="coords" type="button" aria-label="Copy the coordinates"><span id="lat">--</span><span id="lon">--</span></button>
+            <div class="foot mono" id="foot-gps">WAITING FOR GPS</div>
+          </article>
+
+          <article class="tile sm" id="t-alt">
+            <button class="hit" type="button" data-focus="altitude" aria-label="Altitude"></button>
+            <div class="th"><h2 class="lbl">ALTITUDE</h2><span class="tag" id="tag-alt">WAIT</span></div>
+            <div class="tv"><span class="val mono" id="val-alt">--</span><span class="unit">m</span></div>
+            <div class="track"><span class="fill" id="fill-alt"></span></div>
+            <div class="foot mono" id="foot-alt">MIN -- · MAX --</div>
+          </article>
+
+          <article class="tile sm" id="t-vs">
+            <button class="hit" type="button" data-focus="descent_rate" aria-label="Vertical speed. Show its alert"></button>
+            <div class="th"><h2 class="lbl">VERTICAL SPEED</h2><span class="tag" id="tag-vs">WAIT</span></div>
+            <div class="tv"><span class="val mono" id="val-vs">--</span><span class="unit">m/s</span></div>
+            <div class="track"><span class="center"></span><span class="fill" id="fill-vs"></span></div>
+            <div class="foot mono" id="foot-vs">MIN -- · MAX --</div>
+          </article>
+
+          <article class="tile sm" id="t-spd">
+            <button class="hit" type="button" data-focus="speed" aria-label="Ground speed"></button>
+            <div class="th"><h2 class="lbl">GROUND SPEED</h2><span class="tag" id="tag-spd">WAIT</span></div>
+            <div class="tv"><span class="val mono" id="val-spd">--</span><span class="unit">m/s</span></div>
+            <div class="track"><span class="fill" id="fill-spd"></span></div>
+            <div class="foot mono" id="foot-spd">MIN -- · MAX --</div>
+          </article>
+
+          <article class="tile sm" id="t-batt">
+            <button class="hit" type="button" data-focus="battery_voltage" aria-label="Battery. Show its alert"></button>
+            <div class="th"><h2 class="lbl">BATTERY</h2><span class="tag" id="tag-batt">WAIT</span></div>
+            <div class="tv"><span class="val mono" id="val-batt">--</span><span class="unit">V</span></div>
+            <div class="track seg"><span class="fill" id="fill-batt"></span></div>
+            <div class="foot mono" id="foot-batt">MIN -- · MAX --</div>
+          </article>
+
+          <article class="tile sm" id="t-att">
+            <button class="hit" type="button" data-focus="tilt" aria-label="Attitude. Show its alert"></button>
+            <div class="th"><h2 class="lbl">ATTITUDE</h2><span class="tag" id="tag-att">WAIT</span></div>
+            <div class="inst">
+              <div class="stats">
+                <div class="stat"><span class="k">ROLL</span><span class="v mono" id="val-roll">--</span></div>
+                <div class="stat"><span class="k">PITCH</span><span class="v mono" id="val-pitch">--</span></div>
+              </div>
+              <div class="hz" aria-hidden="true"><div class="hzw" id="horizon"></div><div class="hzc"></div></div>
+            </div>
+            <div class="foot mono" id="foot-att">TILT --</div>
+          </article>
+
+          <article class="tile sm" id="t-hdg">
+            <button class="hit" type="button" data-focus="heading" aria-label="Heading"></button>
+            <div class="th"><h2 class="lbl">HEADING (GPS)</h2><span class="tag" id="tag-hdg">WAIT</span></div>
+            <div class="inst">
+              <div>
+                <span class="val s mono" id="val-hdg">--</span>
+                <span class="dir" id="dir-hdg">&nbsp;</span>
+              </div>
+              <div class="cmp" aria-hidden="true">
+                <span class="cl n">N</span><span class="cl e">E</span><span class="cl s">S</span><span class="cl w">W</span>
+                <div class="needle" id="needle"></div>
+              </div>
+            </div>
+            <div class="foot mono" id="foot-hdg">DIRECTION OF TRAVEL</div>
+          </article>
+
+        </section>
+      </div>
+
+      <!-- ===== GRAPHS: one strip per channel, drawn by graphs.js ===== -->
+      <div class="left" id="pane-graphs" hidden>
+        <div id="strips"></div>
+      </div>
+
+      <!-- ===== MAP: the track on a grid (or online tiles), then three panels ===== -->
+      <div class="left" id="pane-map" hidden>
+
+        <section class="mapsec" aria-label="Flight track map">
+          <div class="mapvp" id="mapvp"></div>
+          <div class="veil" id="mapveil" hidden><span id="mapveilText">NO DATA</span></div>
+
+          <div class="mhud m-tc" id="mapchips"></div>
+
+          <div class="mhud m-tl">
+            <div class="hbox" id="mb-pos">
+              <div class="th"><span class="lbl">POSITION</span><span class="tag" id="mt-pos">WAIT</span></div>
+              <button class="coords mono" id="mcoords" type="button" aria-label="Copy the coordinates"><span id="mlat">--</span><span id="mlon">--</span></button>
+              <div class="hcap" id="mhint">TAP TO COPY</div>
+            </div>
+          </div>
+
+          <div class="mhud m-tr">
+            <div class="hbox tools">
+              <div class="trow"><span class="lbl">BASE</span>
+                <button class="bb sq on" type="button" data-base="grid" aria-pressed="true">GRID</button>
+                <button class="bb sq" type="button" data-base="tiles" aria-pressed="false">TILES</button>
+              </div>
+              <div class="trow"><span class="lbl">VIEW</span>
+                <button class="bb sq on" type="button" data-view="follow" aria-pressed="true">FOLLOW</button>
+                <button class="bb sq" type="button" data-view="home" aria-pressed="false">HOME</button>
+                <button class="bb sq" type="button" data-view="fit" aria-pressed="false">FIT</button>
+              </div>
+              <div class="trow"><span class="lbl">ZOOM</span>
+                <button class="bb sq" type="button" id="zoomOut" aria-label="Zoom out">−</button>
+                <button class="bb sq" type="button" id="zoomIn" aria-label="Zoom in">+</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mhud m-bl">
+            <div class="hbox">
+              <div class="lbl">SCALE</div>
+              <div class="sbar" id="sbar"></div>
+              <div class="hcap" id="scaleText">-- · GRID -- / --</div>
+            </div>
+          </div>
+
+          <div class="mhud m-bc">
+            <div class="hbox ms">
+              <div class="th"><span class="lbl">FROM HOME</span></div>
+              <div class="tv"><span class="val mono" id="m-dist">--</span></div>
+              <div class="hcap" id="m-brg">BEARING --</div>
+            </div>
+            <div class="hbox ms">
+              <div class="th"><span class="lbl">TRACK</span></div>
+              <div class="tv"><span class="val mono" id="m-len">--</span></div>
+              <div class="hcap" id="m-nfix">0 GPS FIXES</div>
+            </div>
+            <div class="hbox ms" id="mb-sats">
+              <div class="th"><span class="lbl">SATELLITES</span></div>
+              <div class="tv"><span class="val mono" id="m-sats">--</span><span class="unit" id="m-fix">NO FIX</span></div>
+              <div class="hcap">UPDATES 1×/S</div>
+            </div>
+          </div>
+
+          <div class="mhud m-br">
+            <div class="hbox">
+              <div class="trow"><span class="lbl">TRAIL</span>
+                <button class="bb sq on" type="button" data-trail="plain" aria-pressed="true">PLAIN</button>
+                <button class="bb sq" type="button" data-trail="alt" aria-pressed="false">ALT</button>
+                <button class="bb sq" type="button" data-trail="spd" aria-pressed="false">SPEED</button>
+              </div>
+              <div id="legend" hidden>
+                <div class="lgbar"></div>
+                <div class="legl mono"><span id="legA">0 m</span><span id="legB">100 m</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="mrow">
+
+          <div class="panel" id="p-att">
+            <div class="ph"><span class="pl">ATTITUDE INDICATOR</span><span class="tag" id="ptag-att">WAIT</span></div>
+            <div class="ibody">
+              <div class="ahz" aria-hidden="true">
+                <div class="ahzw" id="ahzw"><div class="lad"></div></div>
+                <div id="rticks"></div>
+                <div class="rptr" id="rptr"></div>
+                <div class="hzc"></div>
+              </div>
+              <div class="istats">
+                <div class="stat"><span class="k">ROLL</span><span class="v mono" id="pv-roll">--</span></div>
+                <div class="stat"><span class="k">PITCH</span><span class="v mono" id="pv-pitch">--</span></div>
+                <div>
+                  <div class="note mono" id="p-tilt">TILT -- · LIMITS 45° / 70°</div>
+                  <div class="track" style="margin-top: 4px"><span class="fill" id="p-tiltfill"></span><span class="tick" id="p-tick1"></span><span class="tick" id="p-tick2"></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" id="p-hdg">
+            <div class="ph"><span class="pl">HEADING · GPS</span><span class="tag" id="ptag-hdg">WAIT</span></div>
+            <div class="ibody">
+              <div class="cmp big" aria-hidden="true">
+                <span class="cl n">N</span><span class="cl e">E</span><span class="cl s">S</span><span class="cl w">W</span>
+                <div class="needle" id="pneedle"></div>
+              </div>
+              <div class="istats">
+                <div class="stat"><span class="k">TRAVEL DIRECTION</span><span class="v mono" id="pv-hdg">--</span></div>
+                <div class="stat"><span class="k">COMPASS POINT</span><span class="v mono" id="pv-dir">--</span></div>
+                <div class="note" id="p-hdgnote">Direction of travel from GPS. It is not where the nose points.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="ph"><span class="pl">FLIGHT RECORD</span><span class="pc mono" id="p-tc">T+ --:--</span></div>
+            <div class="kv"><span>MAX ALTITUDE</span><span class="v mono" id="r-alt">--</span></div>
+            <div class="kv"><span>MAX GROUND SPEED</span><span class="v mono" id="r-spd">--</span></div>
+            <div class="kv"><span>MAX DISTANCE FROM HOME</span><span class="v mono" id="r-range">--</span></div>
+            <div class="kv"><span>TRACK LENGTH</span><span class="v mono" id="r-len">--</span></div>
+            <div class="kv"><span>LOWEST BATTERY</span><span class="v mono" id="r-batt">--</span></div>
+            <div class="kv"><span>MAX TILT</span><span class="v mono" id="r-tilt">--</span></div>
+          </div>
+
+        </section>
+      </div>
+
     </div>
-    <div class="gtools" id="gtools" hidden>
-      <span class="curs mono" id="cursText">LIVE</span>
-      <button class="bb" id="followBtn" type="button" hidden>FOLLOW LIVE</button>
-      <div class="wins" id="wins" role="group" aria-label="Time window"></div>
-    </div>
-  </nav>
 
-  <!-- The nine measurements -->
-  <main class="cards" id="pane-flight">
+    <!-- RIGHT: the alert panel. It never scrolls with the left column. -->
+    <aside class="side" aria-label="Alerts and link status">
 
-    <article class="tile" id="t-g">
-      <div class="th"><h2 class="lbl">G-FORCE</h2><span class="tag" id="tag-g">WAIT</span></div>
-      <div class="tv"><span class="val mono" id="val-g">--</span><span class="unit">g</span></div>
-      <div class="track"><span class="fill" id="fill-g"></span></div>
-      <div class="foot mono" id="foot-g">MIN -- · MAX --</div>
-    </article>
-
-    <article class="tile" id="t-temp">
-      <div class="th"><h2 class="lbl">TEMPERATURE</h2><span class="tag" id="tag-temp">WAIT</span></div>
-      <div class="tv"><span class="val mono" id="val-temp">--</span><span class="unit">°C</span></div>
-      <div class="track"><span class="fill" id="fill-temp"></span></div>
-      <div class="foot mono" id="foot-temp">MIN -- · MAX --</div>
-    </article>
-
-    <article class="tile" id="t-gps">
-      <div class="th"><h2 class="lbl">GPS</h2><span class="tag" id="tag-gps">WAIT</span></div>
-      <div class="gpsrow">
-        <span class="val s mono" id="val-sats">--</span><span class="unit">SATS</span>
-        <span class="fixchip" id="fixchip">NO FIX</span>
-      </div>
-      <div class="coords mono" id="coords"><span id="lat">--</span><span id="lon">--</span></div>
-      <div class="foot mono" id="foot-gps">WAITING FOR GPS</div>
-    </article>
-
-    <article class="tile" id="t-alt">
-      <div class="th"><h2 class="lbl">ALTITUDE</h2><span class="tag" id="tag-alt">WAIT</span></div>
-      <div class="tv"><span class="val mono" id="val-alt">--</span><span class="unit">m</span></div>
-      <div class="track"><span class="fill" id="fill-alt"></span></div>
-      <div class="foot mono" id="foot-alt">MIN -- · MAX --</div>
-    </article>
-
-    <article class="tile" id="t-vs">
-      <div class="th"><h2 class="lbl">VERTICAL SPEED</h2><span class="tag" id="tag-vs">WAIT</span></div>
-      <div class="tv"><span class="val mono" id="val-vs">--</span><span class="unit">m/s</span></div>
-      <div class="track"><span class="center"></span><span class="fill" id="fill-vs"></span></div>
-      <div class="foot mono" id="foot-vs">MIN -- · MAX --</div>
-    </article>
-
-    <article class="tile" id="t-spd">
-      <div class="th"><h2 class="lbl">GROUND SPEED</h2><span class="tag" id="tag-spd">WAIT</span></div>
-      <div class="tv"><span class="val mono" id="val-spd">--</span><span class="unit">m/s</span></div>
-      <div class="track"><span class="fill" id="fill-spd"></span></div>
-      <div class="foot mono" id="foot-spd">MIN -- · MAX --</div>
-    </article>
-
-    <article class="tile" id="t-batt">
-      <div class="th"><h2 class="lbl">BATTERY</h2><span class="tag" id="tag-batt">WAIT</span></div>
-      <div class="tv"><span class="val mono" id="val-batt">--</span><span class="unit">V</span></div>
-      <div class="track seg"><span class="fill" id="fill-batt"></span></div>
-      <div class="foot mono" id="foot-batt">MIN -- · MAX --</div>
-    </article>
-
-    <article class="tile" id="t-att">
-      <div class="th"><h2 class="lbl">ATTITUDE</h2><span class="tag" id="tag-att">WAIT</span></div>
-      <div class="inst">
-        <div class="stats">
-          <div class="stat"><span class="k">ROLL</span><span class="v mono" id="val-roll">--</span></div>
-          <div class="stat"><span class="k">PITCH</span><span class="v mono" id="val-pitch">--</span></div>
+      <section class="panel alerts" id="p-alerts">
+        <div class="ph"><span class="pl">CAUTION &amp; WARNING</span><span class="pc mono" id="alertCount">0 ACTIVE</span></div>
+        <div id="alertList"></div>
+        <div class="clear" id="clearBox">
+          <span class="okmark"></span>
+          <div class="ct">ALL CLEAR</div>
+          <div class="cs">No active alerts. Every monitored value is inside its limits.</div>
         </div>
-        <div class="hz" aria-hidden="true"><div class="hzw" id="horizon"></div><div class="hzc"></div></div>
-      </div>
-      <div class="foot mono" id="foot-att">TILT --</div>
-    </article>
+      </section>
 
-    <article class="tile" id="t-hdg">
-      <div class="th"><h2 class="lbl">HEADING (GPS)</h2><span class="tag" id="tag-hdg">WAIT</span></div>
-      <div class="inst">
-        <div>
-          <span class="val s mono" id="val-hdg">--</span>
-          <span class="dir" id="dir-hdg">&nbsp;</span>
-        </div>
-        <div class="cmp" aria-hidden="true">
-          <span class="cl n">N</span><span class="cl e">E</span><span class="cl s">S</span><span class="cl w">W</span>
-          <div class="needle" id="needle"></div>
-        </div>
-      </div>
-      <div class="foot mono" id="foot-hdg">DIRECTION OF TRAVEL</div>
-    </article>
+      <section class="panel" id="p-link">
+        <div class="ph"><span class="pl">LINK</span><span class="pc mono" id="linkState">--</span></div>
+        <div class="kv"><span>BACKEND</span><span class="v mono" id="lk-backend">--</span></div>
+        <div class="kv"><span>PACKET RATE</span><span class="v mono" id="lk-rate">--</span></div>
+        <div class="kv"><span>LAST PACKET</span><span class="v mono" id="lk-last">--</span></div>
+        <div class="kv"><span>LOST / INVALID</span><span class="v mono" id="lk-loss">0 / 0</span></div>
+      </section>
 
-  </main>
-
-  <!-- The history: one strip per channel, drawn by graphs.js -->
-  <section id="pane-graphs" hidden>
-    <div id="strips"></div>
-  </section>
+    </aside>
+  </div>
 </div>
 <script src="/static/vendor/echarts.min.js"></script>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
 <script src="/static/graphs.js"></script>
+<script src="/static/map.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
